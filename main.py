@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get the base URL dynamically from Render's environment variable or use localhost for local testing
-BASE_URL = os.getenv("RENDER_EXTERNAL_URL", "http://localhost:5000")
+BASE_URL = os.getenv("RENDER_EXTERNAL_URL", "https://webapp2-494f.onrender.com")
 
 # Secrets stored in Render or .env for local development
 API_KEY = os.getenv("TLO_API_KEY")
@@ -91,6 +91,53 @@ def ssn_lookup():
             f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}"
         )
     return jsonify(result or {"error": "Failed to perform SSN lookup"})
+
+@app.route("/discord", methods=["POST"])
+def discord_interaction():
+    """ Handles commands sent from Discord """
+    data = request.json
+    print("Received Discord command:", data)
+
+    if "content" not in data or not data["content"]:
+        return jsonify({"error": "No command content provided"}), 400
+
+    command = data["content"].strip().lower()
+    response_message = ""
+
+    if command.startswith("!balance"):
+        url = f"{BASE_URL}/check_balance?license_key={API_KEY}"
+        result = debug_request(url)
+        response_message = f"Balance Info: {result}" if result else "Failed to check balance."
+
+    elif command.startswith("!email_lookup"):
+        parts = command.split()
+        if len(parts) != 2:
+            response_message = "Usage: !email_lookup <email>"
+        else:
+            email = parts[1]
+            url = f"{BASE_URL}/email_lookup?email={email}&license_key={API_KEY}"
+            result = debug_request(url)
+            response_message = f"Email Lookup Result for {email}: {result}" if result else "Failed to perform email lookup."
+
+    elif command.startswith("!ssn_lookup"):
+        parts = command.split()
+        if len(parts) != 4:
+            response_message = "Usage: !ssn_lookup <first_name> <last_name> <dob>"
+        else:
+            fname, lname, dob = parts[1], parts[2], parts[3]
+            url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={API_KEY}"
+            result = debug_request(url)
+            response_message = (
+                f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}"
+                if result
+                else "Failed to perform SSN lookup."
+            )
+
+    else:
+        response_message = "Unknown command. Available commands: !balance, !email_lookup, !ssn_lookup"
+
+    send_to_discord("Command Response", response_message)
+    return jsonify({"message": "Command processed", "response": response_message})
 
 @app.route("/")
 def home():
