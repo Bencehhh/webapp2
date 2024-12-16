@@ -1,5 +1,6 @@
 import os
 import requests
+from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 
 # Load environment variables from .env for local development
@@ -16,6 +17,8 @@ if not API_KEY:
     raise EnvironmentError("API_KEY is not set. Please add it to your environment variables.")
 if not DISCORD_WEBHOOK_URL:
     raise EnvironmentError("DISCORD_WEBHOOK_URL is not set. Please add it to your environment variables.")
+
+app = Flask(__name__)
 
 def debug_request(endpoint):
     """ Helper to send requests and print detailed debugging info """
@@ -54,28 +57,32 @@ def send_to_discord(title, description, color=3447003):
     except requests.exceptions.RequestException as e:
         print("Error sending to Discord:", e)
 
+@app.route("/check_balance", methods=["GET"])
 def check_balance():
-    print("\n--- Checking Balance ---")
     url = f"{BASE_URL}/check_balance?license_key={API_KEY}"
     result = debug_request(url)
     if result:
         send_to_discord("Balance Check", f"Balance Info: {result}")
+    return jsonify(result or {"error": "Failed to check balance"})
 
-def email_lookup(email):
-    print("\n--- Performing Email Lookup ---")
+@app.route("/email_lookup", methods=["GET"])
+def email_lookup():
+    email = request.args.get("email")
     if not email:
-        print("Error: Email is required")
-        return
+        return jsonify({"error": "Email is required"}), 400
     url = f"{BASE_URL}/email_lookup?email={email}&license_key={API_KEY}"
     result = debug_request(url)
     if result:
         send_to_discord("Email Lookup", f"Email Lookup Result for {email}: {result}")
+    return jsonify(result or {"error": "Failed to perform email lookup"})
 
-def ssn_lookup(fname, lname, dob):
-    print("\n--- Performing SSN Lookup ---")
+@app.route("/ssn_lookup", methods=["GET"])
+def ssn_lookup():
+    fname = request.args.get("fname")
+    lname = request.args.get("lname")
+    dob = request.args.get("dob")
     if not all([fname, lname, dob]):
-        print("Error: First name, last name, and DOB are required")
-        return
+        return jsonify({"error": "First name, last name, and DOB are required"}), 400
     url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={API_KEY}"
     result = debug_request(url)
     if result:
@@ -83,13 +90,11 @@ def ssn_lookup(fname, lname, dob):
             "SSN Lookup",
             f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}"
         )
+    return jsonify(result or {"error": "Failed to perform SSN lookup"})
 
-def main():
-    print("TLO API Debug Tool\n")
-
-    check_balance()
-    email_lookup("test@example.com")
-    ssn_lookup("John", "Doe", "01-01-2000")
+@app.route("/")
+def home():
+    return "Welcome to the TLO API Debug Tool!"
 
 if __name__ == "__main__":
-    main()
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
