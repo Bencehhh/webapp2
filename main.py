@@ -166,7 +166,7 @@ def chatbox():
         <title>Chatbox Command Interface</title>
         <h1>Command Input</h1>
         <form action="/chatbox" method="post">
-            <input type="text" name="command" placeholder="Enter command (e.g., /balance)" required>
+            <input type="text" name="command" placeholder="Enter command" required>
             <button type="submit">Send</button>
         </form>
         <br>
