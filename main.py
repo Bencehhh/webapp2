@@ -1,21 +1,17 @@
 import os
 import requests
 from flask import Flask, request, jsonify, render_template_string
-from dotenv import load_dotenv
 from time import sleep
 
-# Load environment variables
-load_dotenv()
+# Set the correct TLO API Key
+CORRECT_API_KEY = "hKzK5lWvwG"  # Replace with your actual TLO API Key
 
 # Override base URL with the provided IP address
 BASE_URL = "http://205.185.117.225:9203"
-API_KEY = os.getenv("TLO_API_KEY")
-DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+DISCORD_WEBHOOK_URL = input("Please enter your Discord Webhook URL: ").strip()
 
-if not API_KEY:
-    raise EnvironmentError("API_KEY is not set. Please add it to your environment variables.")
 if not DISCORD_WEBHOOK_URL:
-    raise EnvironmentError("DISCORD_WEBHOOK_URL is not set. Please add it to your environment variables.")
+    raise ValueError("DISCORD_WEBHOOK_URL is required. Please provide a valid Discord webhook URL.")
 
 app = Flask(__name__)
 
@@ -61,47 +57,23 @@ def send_to_discord(title, description, color=3447003):
     except requests.exceptions.RequestException as e:
         print("Error sending to Discord:", e)
 
-# Existing routes
-@app.route("/check_balance", methods=["GET"])
-def check_balance():
-    url = f"{BASE_URL}/check_balance?license_key={API_KEY}"
-    result = debug_request(url)
-    if result:
-        send_to_discord("Balance Check", f"Balance Info: {result}")
-    return jsonify(result or {"error": "Failed to check balance"})
+# Route to check if the provided API key matches the correct one
+@app.route("/check_api_key", methods=["POST"])
+def check_api_key():
+    entered_key = request.form.get("api_key", "").strip()
+    if entered_key == CORRECT_API_KEY:
+        return jsonify({"message": "API Key is valid!"})
+    else:
+        return jsonify({"message": "Invalid API Key. Please try again."})
 
-@app.route("/email_lookup", methods=["GET"])
-def email_lookup():
-    email = request.args.get("email")
-    if not email:
-        return jsonify({"error": "Email is required"}), 400
-    url = f"{BASE_URL}/email_lookup?email={email}&license_key={API_KEY}"
-    result = debug_request(url)
-    if result:
-        send_to_discord("Email Lookup", f"Email Lookup Result for {email}: {result}")
-    return jsonify(result or {"error": "Failed to perform email lookup"})
-
-@app.route("/ssn_lookup", methods=["GET"])
-def ssn_lookup():
-    fname = request.args.get("fname")
-    lname = request.args.get("lname")
-    dob = request.args.get("dob")
-    if not all([fname, lname, dob]):
-        return jsonify({"error": "First name, last name, and DOB are required"}), 400
-    url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={API_KEY}"
-    result = debug_request(url)
-    if result:
-        send_to_discord("SSN Lookup", f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}")
-    return jsonify(result or {"error": "Failed to perform SSN lookup"})
-
-# New route for chatbox commands
+# Route to handle other commands like balance check, email lookup, etc.
 @app.route("/chatbox", methods=["POST"])
 def chatbox_command():
     command = request.form.get("command", "").strip().lower()
     response_message = ""
 
     if command == "/balance":
-        url = f"{BASE_URL}/check_balance?license_key={API_KEY}"
+        url = f"{BASE_URL}/check_balance?license_key={CORRECT_API_KEY}"
         result = debug_request(url)
         response_message = f"Balance Info: {result}" if result else "Failed to check balance."
 
@@ -111,7 +83,7 @@ def chatbox_command():
             response_message = "Usage: /email_lookup <email>"
         else:
             email = parts[1]
-            url = f"{BASE_URL}/email_lookup?email={email}&license_key={API_KEY}"
+            url = f"{BASE_URL}/email_lookup?email={email}&license_key={CORRECT_API_KEY}"
             result = debug_request(url)
             response_message = f"Email Lookup Result for {email}: {result}" if result else "Failed to perform email lookup."
 
@@ -121,7 +93,7 @@ def chatbox_command():
             response_message = "Usage: /ssn_lookup <first_name> <last_name> <dob>"
         else:
             fname, lname, dob = parts[1], parts[2], parts[3]
-            url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={API_KEY}"
+            url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={CORRECT_API_KEY}"
             result = debug_request(url)
             response_message = f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}" if result else "Failed to perform SSN lookup."
 
@@ -130,6 +102,26 @@ def chatbox_command():
 
     send_to_discord("Chatbox Command Response", response_message)
     return jsonify({"message": response_message})
+
+# Front-end to enter API key and check it
+@app.route("/enter_api_key", methods=["GET", "POST"])
+def enter_api_key():
+    if request.method == "POST":
+        api_key = request.form.get("api_key").strip()
+        if api_key == CORRECT_API_KEY:
+            return jsonify({"message": "API Key is valid!"})
+        else:
+            return jsonify({"message": "Invalid API Key. Please try again."})
+
+    return render_template_string("""
+        <!doctype html>
+        <title>Enter API Key</title>
+        <h1>Enter Your TLO API Key</h1>
+        <form action="/enter_api_key" method="post">
+            <input type="text" name="api_key" placeholder="Enter API Key" required>
+            <button type="submit">Check API Key</button>
+        </form>
+    """)
 
 # Chatbox front-end
 @app.route("/")
