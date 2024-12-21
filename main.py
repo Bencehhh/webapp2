@@ -7,7 +7,8 @@ from time import sleep
 # Load environment variables
 load_dotenv()
 
-BASE_URL = os.getenv("RENDER_EXTERNAL_URL", "https://webapp2-494f.onrender.com")
+# Override base URL with the provided IP address
+BASE_URL = "http://205.185.117.225:9203"
 API_KEY = os.getenv("TLO_API_KEY")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
