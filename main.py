@@ -1,17 +1,22 @@
 import os
 import requests
 from flask import Flask, request, jsonify, render_template_string
+from dotenv import load_dotenv
 from time import sleep
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Set the correct TLO API Key
 CORRECT_API_KEY = "hKzK5lWvwG"  # Replace with your actual TLO API Key
 
-# Override base URL with the provided IP address
-BASE_URL = "http://205.185.117.225:9203"
-DISCORD_WEBHOOK_URL = input("Please enter your Discord Webhook URL: ").strip()
+# Get the Discord Webhook URL from environment variables
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 if not DISCORD_WEBHOOK_URL:
-    raise ValueError("DISCORD_WEBHOOK_URL is required. Please provide a valid Discord webhook URL.")
+    raise ValueError("DISCORD_WEBHOOK_URL is required. Please set it in your environment.")
+
+BASE_URL = "http://205.185.117.225:9203"
 
 app = Flask(__name__)
 
