@@ -1,15 +1,12 @@
+from flask import Flask, request, jsonify, render_template_string
 import os
 import requests
-from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 
-# Load environment variables from .env for local development
+# Load environment variables
 load_dotenv()
 
-# Get the base URL dynamically from Render's environment variable or use localhost for local testing
 BASE_URL = os.getenv("RENDER_EXTERNAL_URL", "https://webapp2-494f.onrender.com")
-
-# Secrets stored in Render or .env for local development
 API_KEY = os.getenv("TLO_API_KEY")
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
@@ -21,7 +18,6 @@ if not DISCORD_WEBHOOK_URL:
 app = Flask(__name__)
 
 def debug_request(endpoint):
-    """ Helper to send requests and print detailed debugging info """
     try:
         print(f"Requesting URL: {endpoint}")
         response = requests.get(endpoint, timeout=10)
@@ -38,7 +34,6 @@ def debug_request(endpoint):
         return None
 
 def send_to_discord(title, description, color=3447003):
-    """ Sends an embed to the Discord webhook """
     embed = {
         "embeds": [
             {
@@ -57,6 +52,7 @@ def send_to_discord(title, description, color=3447003):
     except requests.exceptions.RequestException as e:
         print("Error sending to Discord:", e)
 
+# Existing routes
 @app.route("/check_balance", methods=["GET"])
 def check_balance():
     url = f"{BASE_URL}/check_balance?license_key={API_KEY}"
@@ -86,62 +82,58 @@ def ssn_lookup():
     url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={API_KEY}"
     result = debug_request(url)
     if result:
-        send_to_discord(
-            "SSN Lookup",
-            f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}"
-        )
+        send_to_discord("SSN Lookup", f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}")
     return jsonify(result or {"error": "Failed to perform SSN lookup"})
 
-@app.route("/discord", methods=["POST"])
-def discord_interaction():
-    """ Handles commands sent from Discord """
-    data = request.json
-    print("Received Discord command:", data)
-
-    if "content" not in data or not data["content"]:
-        return jsonify({"error": "No command content provided"}), 400
-
-    command = data["content"].strip().lower()
+# New route for chatbox commands
+@app.route("/chatbox", methods=["POST"])
+def chatbox_command():
+    command = request.form.get("command", "").strip().lower()
     response_message = ""
 
-    if command.startswith("!balance"):
+    if command == "/balance":
         url = f"{BASE_URL}/check_balance?license_key={API_KEY}"
         result = debug_request(url)
         response_message = f"Balance Info: {result}" if result else "Failed to check balance."
 
-    elif command.startswith("!email_lookup"):
+    elif command.startswith("/email_lookup"):
         parts = command.split()
         if len(parts) != 2:
-            response_message = "Usage: !email_lookup <email>"
+            response_message = "Usage: /email_lookup <email>"
         else:
             email = parts[1]
             url = f"{BASE_URL}/email_lookup?email={email}&license_key={API_KEY}"
             result = debug_request(url)
             response_message = f"Email Lookup Result for {email}: {result}" if result else "Failed to perform email lookup."
 
-    elif command.startswith("!ssn_lookup"):
+    elif command.startswith("/ssn_lookup"):
         parts = command.split()
         if len(parts) != 4:
-            response_message = "Usage: !ssn_lookup <first_name> <last_name> <dob>"
+            response_message = "Usage: /ssn_lookup <first_name> <last_name> <dob>"
         else:
             fname, lname, dob = parts[1], parts[2], parts[3]
             url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={API_KEY}"
             result = debug_request(url)
-            response_message = (
-                f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}"
-                if result
-                else "Failed to perform SSN lookup."
-            )
+            response_message = f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}" if result else "Failed to perform SSN lookup."
 
     else:
-        response_message = "Unknown command. Available commands: !balance, !email_lookup, !ssn_lookup"
+        response_message = "Unknown command. Available commands: /balance, /email_lookup, /ssn_lookup"
 
-    send_to_discord("Command Response", response_message)
-    return jsonify({"message": "Command processed", "response": response_message})
+    send_to_discord("Chatbox Command Response", response_message)
+    return jsonify({"message": response_message})
 
+# Chatbox front-end
 @app.route("/")
-def home():
-    return "Welcome to the TLO API Debug Tool!"
+def chatbox():
+    return render_template_string("""
+        <!doctype html>
+        <title>Chatbox Command Interface</title>
+        <h1>Command Input</h1>
+        <form action="/chatbox" method="post">
+            <input type="text" name="command" placeholder="Enter command (e.g., /balance)" required>
+            <button type="submit">Send</button>
+        </form>
+    """)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
