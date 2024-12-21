@@ -1,7 +1,8 @@
-from flask import Flask, request, jsonify, render_template_string
 import os
 import requests
+from flask import Flask, request, jsonify, render_template_string
 from dotenv import load_dotenv
+from time import sleep
 
 # Load environment variables
 load_dotenv()
@@ -17,23 +18,30 @@ if not DISCORD_WEBHOOK_URL:
 
 app = Flask(__name__)
 
-def debug_request(endpoint):
-    try:
-        print(f"Requesting URL: {endpoint}")
-        response = requests.get(endpoint, timeout=10)
-        print("Response Status Code:", response.status_code)
-        print("Response Content:", response.text)
+def debug_request(endpoint, retries=3):
+    """ Helper to send requests with retries and detailed debugging info """
+    for attempt in range(retries):
+        try:
+            print(f"Requesting URL: {endpoint} (Attempt {attempt + 1}/{retries})")
+            response = requests.get(endpoint, timeout=20)  # Increased timeout to 20 seconds
+            print("Response Status Code:", response.status_code)
+            print("Response Content:", response.text)
 
-        if response.ok:
-            return response.json()
-        else:
-            print("Error:", response.text)
-            return None
-    except requests.exceptions.RequestException as e:
-        print("Request error:", e)
-        return None
+            if response.ok:
+                return response.json()
+            else:
+                print("Error:", response.text)
+                return None
+        except requests.exceptions.ReadTimeout:
+            print("The request timed out. Retrying...")
+        except requests.exceptions.RequestException as e:
+            print("Request error:", e)
+        sleep(2)  # Wait before retrying
+
+    return {"error": "The request failed after multiple attempts."}
 
 def send_to_discord(title, description, color=3447003):
+    """ Sends an embed to the Discord webhook """
     embed = {
         "embeds": [
             {
