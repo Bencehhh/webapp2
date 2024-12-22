@@ -13,6 +13,7 @@ CORRECT_API_KEY = "hKzK5lWvwG"  # Replace with your actual TLO API Key
 # Get the Discord Webhook URL from environment variables
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
+# Raise an error if the Discord Webhook URL is not set
 if not DISCORD_WEBHOOK_URL:
     raise ValueError("DISCORD_WEBHOOK_URL is required. Please set it in your environment.")
 
