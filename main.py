@@ -53,10 +53,13 @@ def chatbox_command():
     command = request.form.get("command", "").strip().lower()
     response_message = ""
 
+    print(f"Received command: {command}")  # Log the received command
+
     if command == "/balance":
         # Define the balance URL
         balance_url = "http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
-
+        print(f"Redirecting to: {balance_url}")  # Log the redirect URL
+        
         # Server-side redirection
         return redirect(balance_url)
 
