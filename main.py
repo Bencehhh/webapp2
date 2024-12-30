@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, request, jsonify, render_template_string, redirect, url_for
+from flask import Flask, request, jsonify, render_template_string
 from dotenv import load_dotenv
 from time import sleep
 
@@ -77,14 +77,14 @@ def chatbox_command():
     response_message = ""
 
     if command == "/balance":
-        # The balance check URL
+        # Make the request to the balance URL
         balance_url = f"{BASE_URL}/check_balance?user={CORRECT_API_KEY}"
-        
-        # Redirect the user to the balance URL directly
+
+        # Request the balance info
         response = requests.get(balance_url)
         if response.ok:
-            balance_info = response.json()
-            balance = balance_info.get("credits", "N/A")  # Assuming the response contains a key "credits"
+            balance_info = response.json()  # Assuming the response is JSON with balance information
+            balance = balance_info.get("credits", "N/A")  # Get the balance from the response
             response_message = f"Your balance: {balance} credits"
             # Send the balance info to Discord
             send_to_discord("Balance Information", f"Your current balance is: {balance} credits.")
