@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, redirect
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -56,10 +56,9 @@ def chatbox_command():
     if command == "/balance":
         # Define the balance URL
         balance_url = "http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
-        
-        # Respond with a redirect URL
-        response_message = f"Redirecting to: {balance_url}"
-        return jsonify({"redirect_url": balance_url, "message": response_message})
+
+        # Server-side redirection
+        return redirect(balance_url)
 
     elif command.startswith("/email_lookup"):
         parts = command.split()
@@ -118,10 +117,27 @@ def chatbox():
         <!doctype html>
         <title>Chatbox Command Interface</title>
         <h1>Command Input</h1>
-        <form action="/chatbox" method="post">
+        <form id="chatboxForm" action="/chatbox" method="post">
             <input type="text" name="command" placeholder="Enter command (e.g., /balance)" required>
             <button type="submit">Send</button>
         </form>
+        <script>
+            const form = document.getElementById("chatboxForm");
+            form.onsubmit = async (event) => {
+                event.preventDefault();
+                const formData = new FormData(form);
+                const response = await fetch("/chatbox", {
+                    method: "POST",
+                    body: formData,
+                });
+                const result = await response.json();
+                if (result.redirect_url) {
+                    window.location.href = result.redirect_url; // Redirect the user
+                } else {
+                    alert(result.message || "An error occurred.");
+                }
+            };
+        </script>
     """)
 
 if __name__ == "__main__":
