@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, redirect
 from dotenv import load_dotenv
 from time import sleep
 
@@ -77,13 +77,16 @@ def chatbox_command():
     response_message = ""
 
     if command == "/balance":
-        url = f"{BASE_URL}/check_balance?user="  # Username is intentionally left blank
-        result = debug_request(url)
-        if result and "credits" in result:
-            credits = result.get("credits", 50)  # Default to 50 credits if the field exists
-            response_message = f"Balance Info: {credits} credits remaining."
+        # Get the balance from the balance URL
+        balance_url = "http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
+        balance_data = debug_request(balance_url)
+
+        if balance_data and "credits" in balance_data:
+            balance = balance_data["credits"]
+            response_message = f"Your balance is: {balance} credits."
+            send_to_discord("Balance Info", f"The balance is: {balance} credits.", color=3447003)
         else:
-            response_message = "Failed to check balance or no credits information found."
+            response_message = "Failed to fetch balance."
 
     elif command.startswith("/email_lookup"):
         parts = command.split()
