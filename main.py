@@ -63,7 +63,6 @@ def send_to_discord(title, description, color=3447003):
     except requests.exceptions.RequestException as e:
         print("Error sending to Discord:", e)
 
-# Route to check if the provided API key matches the correct one
 @app.route("/check_api_key", methods=["POST"])
 def check_api_key():
     entered_key = request.form.get("api_key", "").strip()
@@ -72,16 +71,19 @@ def check_api_key():
     else:
         return jsonify({"message": "Invalid API Key. Please try again."})
 
-# Route to handle other commands like balance check, email lookup, etc.
 @app.route("/chatbox", methods=["POST"])
 def chatbox_command():
     command = request.form.get("command", "").strip().lower()
     response_message = ""
 
     if command == "/balance":
-        url = f"{BASE_URL}/check_balance?license_key={CORRECT_API_KEY}"
+        url = f"{BASE_URL}/check_balance?user="  # Username is intentionally left blank
         result = debug_request(url)
-        response_message = f"Balance Info: {result}" if result else "Failed to check balance."
+        if result and "credits" in result:
+            credits = result.get("credits", 50)  # Default to 50 credits if the field exists
+            response_message = f"Balance Info: {credits} credits remaining."
+        else:
+            response_message = "Failed to check balance or no credits information found."
 
     elif command.startswith("/email_lookup"):
         parts = command.split()
@@ -109,7 +111,6 @@ def chatbox_command():
     send_to_discord("Chatbox Command Response", response_message)
     return jsonify({"message": response_message})
 
-# Front-end to enter API key and check it
 @app.route("/enter_api_key", methods=["GET", "POST"])
 def enter_api_key():
     if request.method == "POST":
@@ -129,7 +130,6 @@ def enter_api_key():
         </form>
     """)
 
-# Chatbox front-end
 @app.route("/")
 def chatbox():
     return render_template_string("""
