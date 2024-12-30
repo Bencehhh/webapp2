@@ -78,18 +78,21 @@ def chatbox_command():
 
     if command == "/balance":
         # Make the request to the balance URL
-        balance_url = f"http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
+        balance_url = f"{BASE_URL}/check_balance?user={CORRECT_API_KEY}"
 
-        # Request the balance info
-        response = requests.get(balance_url)
-        if response.ok:
-            balance_info = response.json()  # Assuming the response is JSON with balance information
-            balance = balance_info.get("credits", "N/A")  # Get the balance from the response
-            response_message = f"Your balance: {balance} credits"
-            # Send the balance info to Discord
-            send_to_discord("Balance Information", f"Your current balance is: {balance} credits.")
-        else:
-            response_message = "Failed to check balance."
+        # Fetch the balance info
+        try:
+            response = requests.get(balance_url, timeout=10)
+            if response.ok:
+                balance_info = response.json()  # Assuming the response is JSON with balance information
+                balance = balance_info.get("credits", "N/A")  # Get the balance from the response
+                response_message = f"Your balance: {balance} credits"
+                # Send the balance info to Discord
+                send_to_discord("Balance Information", f"Your current balance is: {balance} credits.")
+            else:
+                response_message = "Failed to check balance: Unable to fetch data."
+        except requests.exceptions.RequestException as e:
+            response_message = f"Failed to check balance: {str(e)}"
 
     elif command.startswith("/email_lookup"):
         parts = command.split()
