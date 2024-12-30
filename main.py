@@ -78,7 +78,7 @@ def chatbox_command():
 
     if command == "/balance":
         # Make the request to the balance URL
-        balance_url = f"{BASE_URL}/check_balance?user={CORRECT_API_KEY}"
+        balance_url = f"http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
 
         # Request the balance info
         response = requests.get(balance_url)
