@@ -41,28 +41,6 @@ def send_to_discord(title, description, color=3447003):
     except requests.exceptions.RequestException as e:
         print("Error sending to Discord:", e)
 
-def debug_request(endpoint, retries=3):
-    """ Helper to send requests with retries and detailed debugging info """
-    for attempt in range(retries):
-        try:
-            print(f"Requesting URL: {endpoint} (Attempt {attempt + 1}/{retries})")
-            response = requests.get(endpoint, timeout=20)  # Increased timeout to 20 seconds
-            print("Response Status Code:", response.status_code)
-            print("Response Content:", response.text)
-
-            if response.ok:
-                return response.json()
-            else:
-                print("Error:", response.text)
-                return None
-        except requests.exceptions.ReadTimeout:
-            print("The request timed out. Retrying...")
-        except requests.exceptions.RequestException as e:
-            print("Request error:", e)
-        sleep(2)  # Wait before retrying
-
-    return {"error": "The request failed after multiple attempts."}
-
 @app.route("/check_api_key", methods=["POST"])
 def check_api_key():
     entered_key = request.form.get("api_key", "").strip()
@@ -77,22 +55,29 @@ def chatbox_command():
     response_message = ""
 
     if command == "/balance":
-        # Make the request to the balance URL
-        balance_url = f"{BASE_URL}/check_balance?user={CORRECT_API_KEY}"
-
-        # Fetch the balance info
+        # Define the balance URL
+        balance_url = "http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
+        
+        # Fetch the balance from the URL
         try:
-            response = requests.get(balance_url, timeout=10)
+            response = requests.get(balance_url, timeout=10)  # Set a timeout to avoid hanging
             if response.ok:
-                balance_info = response.json()  # Assuming the response is JSON with balance information
-                balance = balance_info.get("credits", "N/A")  # Get the balance from the response
-                response_message = f"Your balance: {balance} credits"
+                # Parse the balance info
+                balance_info = response.json()  # Assuming the response is JSON
+                balance = balance_info.get("credits", "N/A")  # Extract the 'credits' field
+                
                 # Send the balance info to Discord
                 send_to_discord("Balance Information", f"Your current balance is: {balance} credits.")
+                
+                # Return the balance and the redirect URL
+                response_message = f"Your balance: {balance} credits. Redirecting to: {balance_url}"
+                return jsonify({"redirect_url": balance_url, "message": response_message, "balance": balance})
             else:
                 response_message = "Failed to check balance: Unable to fetch data."
+                return jsonify({"message": response_message}), 500
         except requests.exceptions.RequestException as e:
             response_message = f"Failed to check balance: {str(e)}"
+            return jsonify({"message": response_message}), 500
 
     elif command.startswith("/email_lookup"):
         parts = command.split()
@@ -101,8 +86,11 @@ def chatbox_command():
         else:
             email = parts[1]
             url = f"{BASE_URL}/email_lookup?email={email}&license_key={CORRECT_API_KEY}"
-            result = debug_request(url)
-            response_message = f"Email Lookup Result for {email}: {result}" if result else "Failed to perform email lookup."
+            response = requests.get(url)
+            if response.ok:
+                response_message = f"Email Lookup Result for {email}: {response.json()}"
+            else:
+                response_message = "Failed to perform email lookup."
 
     elif command.startswith("/ssn_lookup"):
         parts = command.split()
@@ -111,8 +99,11 @@ def chatbox_command():
         else:
             fname, lname, dob = parts[1], parts[2], parts[3]
             url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={CORRECT_API_KEY}"
-            result = debug_request(url)
-            response_message = f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}" if result else "Failed to perform SSN lookup."
+            response = requests.get(url)
+            if response.ok:
+                response_message = f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {response.json()}"
+            else:
+                response_message = "Failed to perform SSN lookup."
 
     else:
         response_message = "Unknown command. Available commands: /balance, /email_lookup, /ssn_lookup"
