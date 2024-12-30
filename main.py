@@ -1,6 +1,6 @@
 import os
 import requests
-from flask import Flask, request, jsonify, render_template_string, redirect
+from flask import Flask, request, jsonify, render_template_string, redirect, url_for
 from dotenv import load_dotenv
 from time import sleep
 
@@ -17,9 +17,29 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 if not DISCORD_WEBHOOK_URL:
     raise ValueError("DISCORD_WEBHOOK_URL is required. Please set it in your environment.")
 
-BASE_URL = "http://205.185.117.225:9203"
+BASE_URL = "http://205.185.117.225:9203"  # The base URL for the service
 
 app = Flask(__name__)
+
+def send_to_discord(title, description, color=3447003):
+    """ Sends an embed to the Discord webhook """
+    embed = {
+        "embeds": [
+            {
+                "title": title,
+                "description": description,
+                "color": color,
+            }
+        ]
+    }
+    try:
+        response = requests.post(DISCORD_WEBHOOK_URL, json=embed)
+        if response.ok:
+            print("Notification sent to Discord.")
+        else:
+            print("Failed to send Discord notification:", response.text)
+    except requests.exceptions.RequestException as e:
+        print("Error sending to Discord:", e)
 
 def debug_request(endpoint, retries=3):
     """ Helper to send requests with retries and detailed debugging info """
@@ -43,26 +63,6 @@ def debug_request(endpoint, retries=3):
 
     return {"error": "The request failed after multiple attempts."}
 
-def send_to_discord(title, description, color=3447003):
-    """ Sends an embed to the Discord webhook """
-    embed = {
-        "embeds": [
-            {
-                "title": title,
-                "description": description,
-                "color": color,
-            }
-        ]
-    }
-    try:
-        response = requests.post(DISCORD_WEBHOOK_URL, json=embed)
-        if response.ok:
-            print("Notification sent to Discord.")
-        else:
-            print("Failed to send Discord notification:", response.text)
-    except requests.exceptions.RequestException as e:
-        print("Error sending to Discord:", e)
-
 @app.route("/check_api_key", methods=["POST"])
 def check_api_key():
     entered_key = request.form.get("api_key", "").strip()
@@ -77,16 +77,19 @@ def chatbox_command():
     response_message = ""
 
     if command == "/balance":
-        # Get the balance from the balance URL
-        balance_url = "http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
-        balance_data = debug_request(balance_url)
-
-        if balance_data and "credits" in balance_data:
-            balance = balance_data["credits"]
-            response_message = f"Your balance is: {balance} credits."
-            send_to_discord("Balance Info", f"The balance is: {balance} credits.", color=3447003)
+        # The balance check URL
+        balance_url = f"{BASE_URL}/check_balance?user={CORRECT_API_KEY}"
+        
+        # Redirect the user to the balance URL directly
+        response = requests.get(balance_url)
+        if response.ok:
+            balance_info = response.json()
+            balance = balance_info.get("credits", "N/A")  # Assuming the response contains a key "credits"
+            response_message = f"Your balance: {balance} credits"
+            # Send the balance info to Discord
+            send_to_discord("Balance Information", f"Your current balance is: {balance} credits.")
         else:
-            response_message = "Failed to fetch balance."
+            response_message = "Failed to check balance."
 
     elif command.startswith("/email_lookup"):
         parts = command.split()
@@ -146,4 +149,4 @@ def chatbox():
     """)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 10000)))
