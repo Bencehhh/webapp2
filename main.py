@@ -129,16 +129,19 @@ def chatbox():
             <script>
                 const form = document.getElementById("chatboxForm");
                 form.onsubmit = async (event) => {
-                    event.preventDefault();
-                    const formData = new FormData(form);
-                    const response = await fetch("/chatbox", {
+                    event.preventDefault();  // Prevent default form submission
+                    const formData = new FormData(form);  // Create FormData object with form inputs
+                    const response = await fetch("/chatbox", {  // Send POST request to the Flask route
                         method: "POST",
-                        body: formData,
+                        body: formData,  // Attach form data
                     });
-                    const result = await response.json();
+                    const result = await response.json();  // Parse JSON response
+
+                    // If there's a redirect URL, perform redirection
                     if (result.redirect_url) {
-                        window.location.href = result.redirect_url; // Redirect the user
+                        window.location.href = result.redirect_url;  // Redirect to the URL
                     } else {
+                        // Otherwise, display the response message
                         document.getElementById("responseMessage").textContent = result.message || "An error occurred.";
                     }
                 };
