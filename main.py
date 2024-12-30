@@ -52,16 +52,15 @@ def check_api_key():
 def chatbox_command():
     command = request.form.get("command", "").strip().lower()
     response_message = ""
+    redirect_url = None  # Initialize redirect_url variable
 
     print(f"Received command: {command}")  # Log the received command
 
     if command == "/balance":
         # Define the balance URL
         balance_url = "http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
-        print(f"Redirecting to: {balance_url}")  # Log the redirect URL
-        
-        # Server-side redirection
-        return redirect(balance_url)
+        print(f"Redirect URL: {balance_url}")  # Log the redirect URL
+        redirect_url = balance_url  # Set the redirect_url to the balance URL
 
     elif command.startswith("/email_lookup"):
         parts = command.split()
@@ -93,7 +92,9 @@ def chatbox_command():
         response_message = "Unknown command. Available commands: /balance, /email_lookup, /ssn_lookup"
 
     send_to_discord("Chatbox Command Response", response_message)
-    return jsonify({"message": response_message})
+
+    # Return the message and optional redirect_url to the frontend
+    return jsonify({"message": response_message, "redirect_url": redirect_url})
 
 @app.route("/enter_api_key", methods=["GET", "POST"])
 def enter_api_key():
