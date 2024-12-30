@@ -75,6 +75,7 @@ def check_api_key():
 # Route to handle other commands like balance check, email lookup, etc.
 @app.route("/chatbox", methods=["POST"])
 def chatbox_command():
+    """ Handle chatbox commands """
     command = request.form.get("command", "").strip().lower()
     response_message = ""
 
@@ -112,6 +113,7 @@ def chatbox_command():
 # Front-end to enter API key and check it
 @app.route("/enter_api_key", methods=["GET", "POST"])
 def enter_api_key():
+    """ Enter and validate API key """
     if request.method == "POST":
         api_key = request.form.get("api_key").strip()
         if api_key == CORRECT_API_KEY:
@@ -132,6 +134,7 @@ def enter_api_key():
 # Chatbox front-end
 @app.route("/")
 def chatbox():
+    """ Chatbox front-end """
     return render_template_string("""
         <!doctype html>
         <title>Chatbox Command Interface</title>
