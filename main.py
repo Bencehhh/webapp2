@@ -2,7 +2,6 @@ import os
 import requests
 from flask import Flask, request, jsonify, render_template_string
 from dotenv import load_dotenv
-from time import sleep
 
 # Load environment variables from .env file
 load_dotenv()
@@ -58,26 +57,9 @@ def chatbox_command():
         # Define the balance URL
         balance_url = "http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
         
-        # Fetch the balance from the URL
-        try:
-            response = requests.get(balance_url, timeout=10)  # Set a timeout to avoid hanging
-            if response.ok:
-                # Parse the balance info
-                balance_info = response.json()  # Assuming the response is JSON
-                balance = balance_info.get("credits", "N/A")  # Extract the 'credits' field
-                
-                # Send the balance info to Discord
-                send_to_discord("Balance Information", f"Your current balance is: {balance} credits.")
-                
-                # Return the balance and the redirect URL
-                response_message = f"Your balance: {balance} credits. Redirecting to: {balance_url}"
-                return jsonify({"redirect_url": balance_url, "message": response_message, "balance": balance})
-            else:
-                response_message = "Failed to check balance: Unable to fetch data."
-                return jsonify({"message": response_message}), 500
-        except requests.exceptions.RequestException as e:
-            response_message = f"Failed to check balance: {str(e)}"
-            return jsonify({"message": response_message}), 500
+        # Respond with a redirect URL
+        response_message = f"Redirecting to: {balance_url}"
+        return jsonify({"redirect_url": balance_url, "message": response_message})
 
     elif command.startswith("/email_lookup"):
         parts = command.split()
