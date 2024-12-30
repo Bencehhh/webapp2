@@ -115,29 +115,36 @@ def enter_api_key():
 def chatbox():
     return render_template_string("""
         <!doctype html>
-        <title>Chatbox Command Interface</title>
-        <h1>Command Input</h1>
-        <form id="chatboxForm" action="/chatbox" method="post">
-            <input type="text" name="command" placeholder="Enter command (e.g., /balance)" required>
-            <button type="submit">Send</button>
-        </form>
-        <script>
-            const form = document.getElementById("chatboxForm");
-            form.onsubmit = async (event) => {
-                event.preventDefault();
-                const formData = new FormData(form);
-                const response = await fetch("/chatbox", {
-                    method: "POST",
-                    body: formData,
-                });
-                const result = await response.json();
-                if (result.redirect_url) {
-                    window.location.href = result.redirect_url; // Redirect the user
-                } else {
-                    alert(result.message || "An error occurred.");
-                }
-            };
-        </script>
+        <html>
+        <head>
+            <title>Chatbox Command Interface</title>
+        </head>
+        <body>
+            <h1>Command Input</h1>
+            <form id="chatboxForm" action="/chatbox" method="post">
+                <input type="text" name="command" placeholder="Enter command (e.g., /balance)" required>
+                <button type="submit">Send</button>
+            </form>
+            <p id="responseMessage"></p>
+            <script>
+                const form = document.getElementById("chatboxForm");
+                form.onsubmit = async (event) => {
+                    event.preventDefault();
+                    const formData = new FormData(form);
+                    const response = await fetch("/chatbox", {
+                        method: "POST",
+                        body: formData,
+                    });
+                    const result = await response.json();
+                    if (result.redirect_url) {
+                        window.location.href = result.redirect_url; // Redirect the user
+                    } else {
+                        document.getElementById("responseMessage").textContent = result.message || "An error occurred.";
+                    }
+                };
+            </script>
+        </body>
+        </html>
     """)
 
 if __name__ == "__main__":
