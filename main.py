@@ -2,7 +2,7 @@ import os
 import requests
 from flask import Flask, request, jsonify, render_template_string
 from dotenv import load_dotenv
-from time import sleep
+from concurrent.futures import ThreadPoolExecutor
 
 # Load environment variables from .env file
 load_dotenv()
@@ -20,49 +20,41 @@ if not DISCORD_WEBHOOK_URL:
 # Allow BASE_URL to be configured via environment or fallback to a default
 BASE_URL = os.getenv("BASE_URL", "https://webapp2-494f.onrender.com/")
 
+# Initialize Flask app
 app = Flask(__name__)
 
-def debug_request(endpoint, retries=3):
-    """ Helper to send requests with retries and detailed debugging info """
-    for attempt in range(retries):
-        try:
-            print(f"Requesting URL: {endpoint} (Attempt {attempt + 1}/{retries})")
-            response = requests.get(endpoint, timeout=20)  # Increased timeout to 20 seconds
-            print("Response Status Code:", response.status_code)
-            print("Response Content:", response.text)
+# Initialize ThreadPoolExecutor for concurrent tasks
+executor = ThreadPoolExecutor(max_workers=5)
 
-            if response.ok:
-                return response.json()
-            else:
-                print("Error:", response.text)
-                return None
-        except requests.exceptions.ReadTimeout:
-            print("The request timed out. Retrying...")
-        except requests.exceptions.RequestException as e:
-            print("Request error:", e)
-        sleep(2)  # Wait before retrying
-
-    return {"error": "The request failed after multiple attempts."}
-
-def send_to_discord(title, description, color=3447003):
-    """ Sends an embed to the Discord webhook """
-    embed = {
-        "embeds": [
-            {
-                "title": title,
-                "description": description,
-                "color": color,
-            }
-        ]
-    }
+def send_request(endpoint, timeout=10):
+    """ Helper to send HTTP requests quickly """
     try:
-        response = requests.post(DISCORD_WEBHOOK_URL, json=embed)
-        if response.ok:
-            print("Notification sent to Discord.")
-        else:
-            print("Failed to send Discord notification:", response.text)
+        response = requests.get(endpoint, timeout=timeout)
+        response.raise_for_status()
+        return response.json()
     except requests.exceptions.RequestException as e:
-        print("Error sending to Discord:", e)
+        print(f"Error in request: {e}")
+        return {"error": "Request failed"}
+
+def send_to_discord_async(title, description, color=3447003):
+    """ Send Discord notification asynchronously """
+    def task():
+        embed = {
+            "embeds": [
+                {
+                    "title": title,
+                    "description": description,
+                    "color": color,
+                }
+            ]
+        }
+        try:
+            response = requests.post(DISCORD_WEBHOOK_URL, json=embed)
+            if not response.ok:
+                print(f"Discord webhook failed: {response.text}")
+        except requests.exceptions.RequestException as e:
+            print(f"Error sending to Discord: {e}")
+    executor.submit(task)
 
 @app.route("/check_api_key", methods=["POST"])
 def check_api_key():
@@ -81,7 +73,7 @@ def chatbox_command():
 
     if command == "/balance":
         url = f"{BASE_URL}/check_balance?license_key={CORRECT_API_KEY}"
-        result = debug_request(url)
+        result = send_request(url)
         response_message = f"Balance Info: {result}" if result else "Failed to check balance."
 
     elif command.startswith("/email_lookup"):
@@ -91,7 +83,7 @@ def chatbox_command():
         else:
             email = parts[1]
             url = f"{BASE_URL}/email_lookup?email={email}&license_key={CORRECT_API_KEY}"
-            result = debug_request(url)
+            result = send_request(url)
             response_message = f"Email Lookup Result for {email}: {result}" if result else "Failed to perform email lookup."
 
     elif command.startswith("/ssn_lookup"):
@@ -101,13 +93,13 @@ def chatbox_command():
         else:
             fname, lname, dob = parts[1], parts[2], parts[3]
             url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={CORRECT_API_KEY}"
-            result = debug_request(url)
+            result = send_request(url)
             response_message = f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}" if result else "Failed to perform SSN lookup."
 
     else:
         response_message = "Unknown command. Available commands: /balance, /email_lookup, /ssn_lookup"
 
-    send_to_discord("Chatbox Command Response", response_message)
+    send_to_discord_async("Chatbox Command Response", response_message)
     return jsonify({"message": response_message})
 
 @app.route("/enter_api_key", methods=["GET", "POST"])
