@@ -2,78 +2,85 @@ import os
 import requests
 from flask import Flask, request, jsonify, render_template_string
 from dotenv import load_dotenv
-from concurrent.futures import ThreadPoolExecutor
+from time import sleep
 
 # Load environment variables from .env file
 load_dotenv()
 
-# Get the TLO API Key from environment variables
-CORRECT_API_KEY = os.getenv("TLO_API_KEY")
-if not CORRECT_API_KEY:
-    raise ValueError("TLO_API_KEY is required. Please set it in your environment.")
+# Set the correct TLO API Key
+CORRECT_API_KEY = "hKzK5lWvwG"  # Replace with your actual TLO API Key
 
 # Get the Discord Webhook URL from environment variables
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+
+# Raise an error if the Discord Webhook URL is not set
 if not DISCORD_WEBHOOK_URL:
     raise ValueError("DISCORD_WEBHOOK_URL is required. Please set it in your environment.")
 
-# Set the BASE_URL
-BASE_URL = "https://webapp2-494f.onrender.com"
+BASE_URL = "http://205.185.117.225:9203"
 
-# Initialize Flask app
 app = Flask(__name__)
 
-# Initialize ThreadPoolExecutor for concurrent tasks
-executor = ThreadPoolExecutor(max_workers=5)
-
-def send_request(endpoint, timeout=10):
-    """ Helper to send HTTP requests quickly """
-    try:
-        response = requests.get(endpoint, timeout=timeout)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error in request: {e}")
-        return {"error": "Request failed"}
-
-def send_to_discord_async(title, description, color=3447003):
-    """ Send Discord notification asynchronously """
-    def task():
-        embed = {
-            "embeds": [
-                {
-                    "title": title,
-                    "description": description,
-                    "color": color,
-                }
-            ]
-        }
+def debug_request(endpoint, retries=3):
+    """ Helper to send requests with retries and detailed debugging info """
+    for attempt in range(retries):
         try:
-            response = requests.post(DISCORD_WEBHOOK_URL, json=embed)
-            if not response.ok:
-                print(f"Discord webhook failed: {response.text}")
-        except requests.exceptions.RequestException as e:
-            print(f"Error sending to Discord: {e}")
-    executor.submit(task)
+            print(f"Requesting URL: {endpoint} (Attempt {attempt + 1}/{retries})")
+            response = requests.get(endpoint, timeout=20)  # Increased timeout to 20 seconds
+            print("Response Status Code:", response.status_code)
+            print("Response Content:", response.text)
 
+            if response.ok:
+                return response.json()
+            else:
+                print("Error:", response.text)
+                return None
+        except requests.exceptions.ReadTimeout:
+            print("The request timed out. Retrying...")
+        except requests.exceptions.RequestException as e:
+            print("Request error:", e)
+        sleep(2)  # Wait before retrying
+
+    return {"error": "The request failed after multiple attempts."}
+
+def send_to_discord(title, description, color=3447003):
+    """ Sends an embed to the Discord webhook """
+    embed = {
+        "embeds": [
+            {
+                "title": title,
+                "description": description,
+                "color": color,
+            }
+        ]
+    }
+    try:
+        response = requests.post(DISCORD_WEBHOOK_URL, json=embed)
+        if response.ok:
+            print("Notification sent to Discord.")
+        else:
+            print("Failed to send Discord notification:", response.text)
+    except requests.exceptions.RequestException as e:
+        print("Error sending to Discord:", e)
+
+# Route to check if the provided API key matches the correct one
 @app.route("/check_api_key", methods=["POST"])
 def check_api_key():
-    """ Validate the provided API key """
     entered_key = request.form.get("api_key", "").strip()
     if entered_key == CORRECT_API_KEY:
         return jsonify({"message": "API Key is valid!"})
     else:
         return jsonify({"message": "Invalid API Key. Please try again."})
 
+# Route to handle other commands like balance check, email lookup, etc.
 @app.route("/chatbox", methods=["POST"])
 def chatbox_command():
-    """ Handle chatbox commands """
     command = request.form.get("command", "").strip().lower()
     response_message = ""
 
     if command == "/balance":
         url = f"{BASE_URL}/check_balance?license_key={CORRECT_API_KEY}"
-        result = send_request(url)
+        result = debug_request(url)
         response_message = f"Balance Info: {result}" if result else "Failed to check balance."
 
     elif command.startswith("/email_lookup"):
@@ -83,7 +90,7 @@ def chatbox_command():
         else:
             email = parts[1]
             url = f"{BASE_URL}/email_lookup?email={email}&license_key={CORRECT_API_KEY}"
-            result = send_request(url)
+            result = debug_request(url)
             response_message = f"Email Lookup Result for {email}: {result}" if result else "Failed to perform email lookup."
 
     elif command.startswith("/ssn_lookup"):
@@ -93,18 +100,18 @@ def chatbox_command():
         else:
             fname, lname, dob = parts[1], parts[2], parts[3]
             url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={CORRECT_API_KEY}"
-            result = send_request(url)
+            result = debug_request(url)
             response_message = f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {result}" if result else "Failed to perform SSN lookup."
 
     else:
         response_message = "Unknown command. Available commands: /balance, /email_lookup, /ssn_lookup"
 
-    send_to_discord_async("Chatbox Command Response", response_message)
+    send_to_discord("Chatbox Command Response", response_message)
     return jsonify({"message": response_message})
 
+# Front-end to enter API key and check it
 @app.route("/enter_api_key", methods=["GET", "POST"])
 def enter_api_key():
-    """ Enter and validate API key """
     if request.method == "POST":
         api_key = request.form.get("api_key").strip()
         if api_key == CORRECT_API_KEY:
@@ -122,9 +129,9 @@ def enter_api_key():
         </form>
     """)
 
+# Chatbox front-end
 @app.route("/")
 def chatbox():
-    """ Chatbox front-end """
     return render_template_string("""
         <!doctype html>
         <title>Chatbox Command Interface</title>
@@ -136,4 +143,4 @@ def chatbox():
     """)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
