@@ -7,18 +7,18 @@ from concurrent.futures import ThreadPoolExecutor
 # Load environment variables from .env file
 load_dotenv()
 
-# Set the correct TLO API Key
-CORRECT_API_KEY = "hKzK5lWvwG"  # Replace with your actual TLO API Key
+# Get the TLO API Key from environment variables
+CORRECT_API_KEY = os.getenv("TLO_API_KEY")
+if not CORRECT_API_KEY:
+    raise ValueError("TLO_API_KEY is required. Please set it in your environment.")
 
 # Get the Discord Webhook URL from environment variables
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
-
-# Raise an error if the Discord Webhook URL is not set
 if not DISCORD_WEBHOOK_URL:
     raise ValueError("DISCORD_WEBHOOK_URL is required. Please set it in your environment.")
 
-# Allow BASE_URL to be configured via environment or fallback to a default
-BASE_URL = os.getenv("BASE_URL", "https://webapp2-494f.onrender.com/")
+# Set the BASE_URL
+BASE_URL = "https://webapp2-494f.onrender.com"
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -136,4 +136,4 @@ def chatbox():
     """)
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(host="0.0.0.0", port=10000)
