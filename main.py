@@ -17,7 +17,8 @@ DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 if not DISCORD_WEBHOOK_URL:
     raise ValueError("DISCORD_WEBHOOK_URL is required. Please set it in your environment.")
 
-BASE_URL = "http://205.185.117.225:9203"
+# Allow BASE_URL to be configured via environment or fallback to a default
+BASE_URL = os.getenv("BASE_URL", "https://webapp2-494f.onrender.com/")
 
 app = Flask(__name__)
 
@@ -63,16 +64,15 @@ def send_to_discord(title, description, color=3447003):
     except requests.exceptions.RequestException as e:
         print("Error sending to Discord:", e)
 
-# Route to check if the provided API key matches the correct one
 @app.route("/check_api_key", methods=["POST"])
 def check_api_key():
+    """ Validate the provided API key """
     entered_key = request.form.get("api_key", "").strip()
     if entered_key == CORRECT_API_KEY:
         return jsonify({"message": "API Key is valid!"})
     else:
         return jsonify({"message": "Invalid API Key. Please try again."})
 
-# Route to handle other commands like balance check, email lookup, etc.
 @app.route("/chatbox", methods=["POST"])
 def chatbox_command():
     """ Handle chatbox commands """
@@ -110,7 +110,6 @@ def chatbox_command():
     send_to_discord("Chatbox Command Response", response_message)
     return jsonify({"message": response_message})
 
-# Front-end to enter API key and check it
 @app.route("/enter_api_key", methods=["GET", "POST"])
 def enter_api_key():
     """ Enter and validate API key """
@@ -131,7 +130,6 @@ def enter_api_key():
         </form>
     """)
 
-# Chatbox front-end
 @app.route("/")
 def chatbox():
     """ Chatbox front-end """
