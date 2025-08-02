@@ -118,40 +118,47 @@ def enter_api_key():
 @app.route("/")
 def chatbox():
     return render_template_string("""
-        <!doctype html>
-        <html>
-        <head>
-            <title>Chatbox Command Interface</title>
-        </head>
-        <body>
-            <h1>Command Input</h1>
-            <form id="chatboxForm" action="/chatbox" method="post">
-                <input type="text" name="command" placeholder="Enter command (e.g., /balance)" required>
-                <button type="submit">Send</button>
+    <!doctype html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Chatbox Command Interface</title>
+        <script src="https://cdn.tailwindcss.com"></script>
+    </head>
+    <body class="bg-gray-100 min-h-screen flex items-center justify-center px-4">
+        <div class="bg-white shadow-lg rounded-2xl p-6 w-full max-w-md">
+            <h1 class="text-2xl font-semibold mb-4 text-center text-blue-600">Command Interface</h1>
+            <form id="chatboxForm" action="/chatbox" method="post" class="space-y-4">
+                <input type="text" name="command" placeholder="Enter command (e.g., /balance)" required
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <button type="submit"
+                        class="w-full bg-blue-600 text-white font-medium py-2 rounded-lg hover:bg-blue-700 transition">
+                    Send Command
+                </button>
             </form>
-            <p id="responseMessage"></p>
-            <script>
-                const form = document.getElementById("chatboxForm");
-                form.onsubmit = async (event) => {
-                    event.preventDefault();  // Prevent default form submission
-                    const formData = new FormData(form);  // Create FormData object with form inputs
-                    const response = await fetch("/chatbox", {  // Send POST request to the Flask route
-                        method: "POST",
-                        body: formData,  // Attach form data
-                    });
-                    const result = await response.json();  // Parse JSON response
+            <p id="responseMessage" class="mt-4 text-sm text-gray-700 whitespace-pre-line"></p>
+        </div>
 
-                    // If there's a redirect URL, perform redirection
-                    if (result.redirect_url) {
-                        window.location.href = result.redirect_url;  // Redirect to the URL
-                    } else {
-                        // Otherwise, display the response message
-                        document.getElementById("responseMessage").textContent = result.message || "An error occurred.";
-                    }
-                };
-            </script>
-        </body>
-        </html>
+        <script>
+            const form = document.getElementById("chatboxForm");
+            form.onsubmit = async (event) => {
+                event.preventDefault();
+                const formData = new FormData(form);
+                const response = await fetch("/chatbox", {
+                    method: "POST",
+                    body: formData
+                });
+                const result = await response.json();
+                if (result.redirect_url) {
+                    window.location.href = result.redirect_url;
+                } else {
+                    document.getElementById("responseMessage").textContent = result.message || "An error occurred.";
+                }
+            };
+        </script>
+    </body>
+    </html>
     """)
 
 if __name__ == "__main__":
