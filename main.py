@@ -43,69 +43,80 @@ def chatbox_command():
 
     print(f"Received command: {command}")
 
-    if command == "/balance":
-        redirect_url = f"{BASE_URL}/check_balance?user={CORRECT_API_KEY}"
+    try:
+        if command == "/balance":
+            redirect_url = f"{BASE_URL}/check_balance?user={CORRECT_API_KEY}"
 
-    elif command.startswith("/email_lookup"):
-        parts = command.split()
-        if len(parts) == 2:
-            email = parts[1]
-            url = f"{BASE_URL}/email_lookup?email={email}&license_key={CORRECT_API_KEY}"
-            response = requests.get(url)
-            response_message = f"Email Lookup: {response.json()}" if response.ok else "Email lookup failed."
+        elif command.startswith("/email_lookup"):
+            parts = command.split()
+            if len(parts) == 2:
+                email = parts[1]
+                url = f"{BASE_URL}/email_lookup?email={email}&license_key={CORRECT_API_KEY}"
+                response = requests.get(url)
+                response.raise_for_status()
+                response_message = f"Email Lookup: {response.json()}"
+            else:
+                response_message = "Usage: /email_lookup <email>"
+
+        elif command.startswith("/ssn_lookup"):
+            parts = command.split()
+            if len(parts) == 4:
+                fname, lname, dob = parts[1], parts[2], parts[3]
+                url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={CORRECT_API_KEY}"
+                response = requests.get(url)
+                response.raise_for_status()
+                response_message = f"SSN Lookup: {response.json()}"
+            else:
+                response_message = "Usage: /ssn_lookup <first_name> <last_name> <dob>"
+
+        elif command.startswith("/phone_lookup"):
+            parts = command.split()
+            if len(parts) == 2:
+                phone = parts[1]
+                url = f"{BASE_URL}/phone_lookup?phone={phone}&license_key={CORRECT_API_KEY}"
+                response = requests.get(url)
+                response.raise_for_status()
+                response_message = f"Phone Lookup: {response.json()}"
+            else:
+                response_message = "Usage: /phone_lookup <phone_number>"
+
+        elif command.startswith("/ip_lookup"):
+            parts = command.split()
+            if len(parts) == 2:
+                ip = parts[1]
+                response = requests.get(f"https://ipapi.co/{ip}/json/")
+                response.raise_for_status()
+                response_message = f"IP Lookup: {response.json()}"
+            else:
+                response_message = "Usage: /ip_lookup <ip_address>"
+
+        elif command.startswith("/domain_lookup"):
+            parts = command.split()
+            if len(parts) == 2:
+                domain = parts[1]
+                response = requests.get(
+                    f"https://api.api-ninjas.com/v1/whois?domain={domain}",
+                    headers={"X-Api-Key": os.getenv("NINJA_API_KEY", "")})
+                response.raise_for_status()
+                response_message = f"Domain Lookup: {response.json()}"
+            else:
+                response_message = "Usage: /domain_lookup <domain>"
+
+        elif command.startswith("/bin_lookup"):
+            parts = command.split()
+            if len(parts) == 2:
+                bin_number = parts[1]
+                response = requests.get(f"https://lookup.binlist.net/{bin_number}")
+                response.raise_for_status()
+                response_message = f"BIN Lookup: {response.json()}"
+            else:
+                response_message = "Usage: /bin_lookup <bin_number>"
+
         else:
-            response_message = "Usage: /email_lookup <email>"
+            response_message = "Unknown command. Try: /balance, /email_lookup, /ssn_lookup, /phone_lookup, /ip_lookup, /domain_lookup, /bin_lookup"
 
-    elif command.startswith("/ssn_lookup"):
-        parts = command.split()
-        if len(parts) == 4:
-            fname, lname, dob = parts[1], parts[2], parts[3]
-            url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={CORRECT_API_KEY}"
-            response = requests.get(url)
-            response_message = f"SSN Lookup: {response.json()}" if response.ok else "SSN lookup failed."
-        else:
-            response_message = "Usage: /ssn_lookup <first_name> <last_name> <dob>"
-
-    elif command.startswith("/phone_lookup"):
-        parts = command.split()
-        if len(parts) == 2:
-            phone = parts[1]
-            url = f"{BASE_URL}/phone_lookup?phone={phone}&license_key={CORRECT_API_KEY}"
-            response = requests.get(url)
-            response_message = f"Phone Lookup: {response.json()}" if response.ok else "Phone lookup failed."
-        else:
-            response_message = "Usage: /phone_lookup <phone_number>"
-
-    elif command.startswith("/ip_lookup"):
-        parts = command.split()
-        if len(parts) == 2:
-            ip = parts[1]
-            response = requests.get(f"https://ipapi.co/{ip}/json/")
-            response_message = f"IP Lookup: {response.json()}" if response.ok else "IP lookup failed."
-        else:
-            response_message = "Usage: /ip_lookup <ip_address>"
-
-    elif command.startswith("/domain_lookup"):
-        parts = command.split()
-        if len(parts) == 2:
-            domain = parts[1]
-            response = requests.get(f"https://api.api-ninjas.com/v1/whois?domain={domain}",
-                                    headers={"X-Api-Key": os.getenv("NINJA_API_KEY", "")})
-            response_message = f"Domain Lookup: {response.json()}" if response.ok else "Domain lookup failed."
-        else:
-            response_message = "Usage: /domain_lookup <domain>"
-
-    elif command.startswith("/bin_lookup"):
-        parts = command.split()
-        if len(parts) == 2:
-            bin_number = parts[1]
-            response = requests.get(f"https://lookup.binlist.net/{bin_number}")
-            response_message = f"BIN Lookup: {response.json()}" if response.ok else "BIN lookup failed."
-        else:
-            response_message = "Usage: /bin_lookup <bin_number>"
-
-    else:
-        response_message = "Unknown command. Try: /balance, /email_lookup, /ssn_lookup, /phone_lookup, /ip_lookup, /domain_lookup, /bin_lookup"
+    except requests.exceptions.RequestException as e:
+        response_message = f"An error occurred: {e}"
 
     send_to_discord("Chatbox Command Response", response_message)
     return jsonify({"message": response_message, "redirect_url": redirect_url})
