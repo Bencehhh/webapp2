@@ -12,6 +12,9 @@ if not DISCORD_WEBHOOK_URL:
     raise ValueError("DISCORD_WEBHOOK_URL is required. Please set it in your environment.")
 
 BASE_URL = "http://205.185.117.225:9203"
+NINJA_API_KEY = os.getenv("NINJA_API_KEY")
+PHONE_LOOKUP_API_URL = "https://api.api-ninjas.com/v1/validatephone"
+
 app = Flask(__name__)
 
 def send_to_discord(title, description, color=3447003):
@@ -73,10 +76,26 @@ def chatbox_command():
             parts = command.split()
             if len(parts) == 2:
                 phone = parts[1]
-                url = f"{BASE_URL}/phone_lookup?phone={phone}&license_key={CORRECT_API_KEY}"
-                response = requests.get(url)
-                response.raise_for_status()
-                response_message = f"Phone Lookup: {response.json()}"
+                if not NINJA_API_KEY:
+                    response_message = "Phone Lookup Error: Missing Ninja API Key."
+                else:
+                    try:
+                        response = requests.get(
+                            f"{PHONE_LOOKUP_API_URL}?number={phone}",
+                            headers={"X-Api-Key": NINJA_API_KEY}
+                        )
+                        response.raise_for_status()
+                        data = response.json()
+                        response_message = (
+                            f"Phone Lookup:\n"
+                            f"Number: {data.get('number')}\n"
+                            f"Valid: {data.get('is_valid')}\n"
+                            f"Country: {data.get('country')}\n"
+                            f"Carrier: {data.get('carrier')}\n"
+                            f"Line Type: {data.get('line_type')}"
+                        )
+                    except Exception as e:
+                        response_message = f"Phone Lookup Error: {e}"
             else:
                 response_message = "Usage: /phone_lookup <phone_number>"
 
@@ -96,7 +115,7 @@ def chatbox_command():
                 domain = parts[1]
                 response = requests.get(
                     f"https://api.api-ninjas.com/v1/whois?domain={domain}",
-                    headers={"X-Api-Key": os.getenv("NINJA_API_KEY", "")})
+                    headers={"X-Api-Key": NINJA_API_KEY})
                 response.raise_for_status()
                 response_message = f"Domain Lookup: {response.json()}"
             else:
