@@ -6,22 +6,15 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Set the correct TLO API Key
-CORRECT_API_KEY = "hKzK5lWvwG"  # Replace with your actual TLO API Key
-
-# Get the Discord Webhook URL from environment variables
+CORRECT_API_KEY = "hKzK5lWvwG"
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
-
-# Raise an error if the Discord Webhook URL is not set
 if not DISCORD_WEBHOOK_URL:
     raise ValueError("DISCORD_WEBHOOK_URL is required. Please set it in your environment.")
 
-BASE_URL = "http://205.185.117.225:9203"  # The base URL for the service
-
+BASE_URL = "http://205.185.117.225:9203"
 app = Flask(__name__)
 
 def send_to_discord(title, description, color=3447003):
-    """ Sends an embed to the Discord webhook """
     embed = {
         "embeds": [
             {
@@ -33,77 +26,95 @@ def send_to_discord(title, description, color=3447003):
     }
     try:
         response = requests.post(DISCORD_WEBHOOK_URL, json=embed)
-        if response.ok:
-            print("Notification sent to Discord.")
-        else:
-            print("Failed to send Discord notification:", response.text)
+        print("Notification sent to Discord." if response.ok else f"Failed: {response.text}")
     except requests.exceptions.RequestException as e:
         print("Error sending to Discord:", e)
 
 @app.route("/check_api_key", methods=["POST"])
 def check_api_key():
     entered_key = request.form.get("api_key", "").strip()
-    if entered_key == CORRECT_API_KEY:
-        return jsonify({"message": "API Key is valid!"})
-    else:
-        return jsonify({"message": "Invalid API Key. Please try again."})
+    return jsonify({"message": "API Key is valid!" if entered_key == CORRECT_API_KEY else "Invalid API Key. Please try again."})
 
 @app.route("/chatbox", methods=["POST"])
 def chatbox_command():
     command = request.form.get("command", "").strip().lower()
     response_message = ""
-    redirect_url = None  # Initialize redirect_url variable
+    redirect_url = None
 
-    print(f"Received command: {command}")  # Log the received command
+    print(f"Received command: {command}")
 
     if command == "/balance":
-        # Define the balance URL
-        balance_url = "http://205.185.117.225:9203/check_balance?user=hKzK5lWvwG"
-        print(f"Redirect URL: {balance_url}")  # Log the redirect URL
-        redirect_url = balance_url  # Set the redirect_url to the balance URL
+        redirect_url = f"{BASE_URL}/check_balance?user={CORRECT_API_KEY}"
 
     elif command.startswith("/email_lookup"):
         parts = command.split()
-        if len(parts) != 2:
-            response_message = "Usage: /email_lookup <email>"
-        else:
+        if len(parts) == 2:
             email = parts[1]
             url = f"{BASE_URL}/email_lookup?email={email}&license_key={CORRECT_API_KEY}"
             response = requests.get(url)
-            if response.ok:
-                response_message = f"Email Lookup Result for {email}: {response.json()}"
-            else:
-                response_message = "Failed to perform email lookup."
+            response_message = f"Email Lookup: {response.json()}" if response.ok else "Email lookup failed."
+        else:
+            response_message = "Usage: /email_lookup <email>"
 
     elif command.startswith("/ssn_lookup"):
         parts = command.split()
-        if len(parts) != 4:
-            response_message = "Usage: /ssn_lookup <first_name> <last_name> <dob>"
-        else:
+        if len(parts) == 4:
             fname, lname, dob = parts[1], parts[2], parts[3]
             url = f"{BASE_URL}/ssn?fname={fname}&lname={lname}&dob={dob}&license_key={CORRECT_API_KEY}"
             response = requests.get(url)
-            if response.ok:
-                response_message = f"SSN Lookup Result for {fname} {lname} (DOB: {dob}): {response.json()}"
-            else:
-                response_message = "Failed to perform SSN lookup."
+            response_message = f"SSN Lookup: {response.json()}" if response.ok else "SSN lookup failed."
+        else:
+            response_message = "Usage: /ssn_lookup <first_name> <last_name> <dob>"
+
+    elif command.startswith("/phone_lookup"):
+        parts = command.split()
+        if len(parts) == 2:
+            phone = parts[1]
+            url = f"{BASE_URL}/phone_lookup?phone={phone}&license_key={CORRECT_API_KEY}"
+            response = requests.get(url)
+            response_message = f"Phone Lookup: {response.json()}" if response.ok else "Phone lookup failed."
+        else:
+            response_message = "Usage: /phone_lookup <phone_number>"
+
+    elif command.startswith("/ip_lookup"):
+        parts = command.split()
+        if len(parts) == 2:
+            ip = parts[1]
+            response = requests.get(f"https://ipapi.co/{ip}/json/")
+            response_message = f"IP Lookup: {response.json()}" if response.ok else "IP lookup failed."
+        else:
+            response_message = "Usage: /ip_lookup <ip_address>"
+
+    elif command.startswith("/domain_lookup"):
+        parts = command.split()
+        if len(parts) == 2:
+            domain = parts[1]
+            response = requests.get(f"https://api.api-ninjas.com/v1/whois?domain={domain}",
+                                    headers={"X-Api-Key": os.getenv("NINJA_API_KEY", "")})
+            response_message = f"Domain Lookup: {response.json()}" if response.ok else "Domain lookup failed."
+        else:
+            response_message = "Usage: /domain_lookup <domain>"
+
+    elif command.startswith("/bin_lookup"):
+        parts = command.split()
+        if len(parts) == 2:
+            bin_number = parts[1]
+            response = requests.get(f"https://lookup.binlist.net/{bin_number}")
+            response_message = f"BIN Lookup: {response.json()}" if response.ok else "BIN lookup failed."
+        else:
+            response_message = "Usage: /bin_lookup <bin_number>"
 
     else:
-        response_message = "Unknown command. Available commands: /balance, /email_lookup, /ssn_lookup"
+        response_message = "Unknown command. Try: /balance, /email_lookup, /ssn_lookup, /phone_lookup, /ip_lookup, /domain_lookup, /bin_lookup"
 
     send_to_discord("Chatbox Command Response", response_message)
-
-    # Return the message and optional redirect_url to the frontend
     return jsonify({"message": response_message, "redirect_url": redirect_url})
 
 @app.route("/enter_api_key", methods=["GET", "POST"])
 def enter_api_key():
     if request.method == "POST":
         api_key = request.form.get("api_key").strip()
-        if api_key == CORRECT_API_KEY:
-            return jsonify({"message": "API Key is valid!"})
-        else:
-            return jsonify({"message": "Invalid API Key. Please try again."})
+        return jsonify({"message": "API Key is valid!" if api_key == CORRECT_API_KEY else "Invalid API Key."})
 
     return render_template_string("""
         <!doctype html>
@@ -119,25 +130,37 @@ def enter_api_key():
 def chatbox():
     return render_template_string("""
     <!doctype html>
-    <html lang="en">
+    <html lang=\"en\">
     <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta charset=\"UTF-8\">
+        <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
         <title>Chatbox Command Interface</title>
-        <script src="https://cdn.tailwindcss.com"></script>
+        <script src=\"https://cdn.tailwindcss.com\"></script>
     </head>
-    <body class="bg-gray-100 min-h-screen flex items-center justify-center px-4">
-        <div class="bg-white shadow-lg rounded-2xl p-6 w-full max-w-md">
-            <h1 class="text-2xl font-semibold mb-4 text-center text-blue-600">Command Interface</h1>
-            <form id="chatboxForm" action="/chatbox" method="post" class="space-y-4">
-                <input type="text" name="command" placeholder="Enter command (e.g., /balance)" required
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400">
-                <button type="submit"
-                        class="w-full bg-blue-600 text-white font-medium py-2 rounded-lg hover:bg-blue-700 transition">
+    <body class=\"bg-gray-100 min-h-screen flex items-center justify-center px-4\">
+        <div class=\"bg-white shadow-lg rounded-2xl p-6 w-full max-w-md\">
+            <h1 class=\"text-2xl font-semibold mb-4 text-center text-blue-600\">Command Interface</h1>
+            <form id=\"chatboxForm\" action=\"/chatbox\" method=\"post\" class=\"space-y-4\">
+                <input type=\"text\" name=\"command\" placeholder=\"Enter command (e.g., /balance)\" required
+                       class=\"w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400\">
+                <button type=\"submit\"
+                        class=\"w-full bg-blue-600 text-white font-medium py-2 rounded-lg hover:bg-blue-700 transition\">
                     Send Command
                 </button>
             </form>
-            <p id="responseMessage" class="mt-4 text-sm text-gray-700 whitespace-pre-line"></p>
+            <div class=\"mt-4 p-3 border border-gray-300 rounded-lg text-sm bg-gray-50\">
+                <strong>Available Commands:</strong>
+                <ul class=\"list-disc ml-5 mt-1 space-y-1\">
+                    <li>/balance</li>
+                    <li>/email_lookup &lt;email&gt;</li>
+                    <li>/ssn_lookup &lt;first_name&gt; &lt;last_name&gt; &lt;dob&gt;</li>
+                    <li>/phone_lookup &lt;phone_number&gt;</li>
+                    <li>/ip_lookup &lt;ip_address&gt;</li>
+                    <li>/domain_lookup &lt;domain.com&gt;</li>
+                    <li>/bin_lookup &lt;bin_number&gt;</li>
+                </ul>
+            </div>
+            <p id=\"responseMessage\" class=\"mt-4 text-sm text-gray-700 whitespace-pre-line\"></p>
         </div>
 
         <script>
